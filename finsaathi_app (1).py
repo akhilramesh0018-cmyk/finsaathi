@@ -340,12 +340,3 @@ if st.button(t["btn"]):
         st.divider()
         st.caption(t["footer"])
 '''
-
-with open('finsaathi_app.py', 'w') as f:
-    f.write(finsaathi_v2)
-
-from google.colab import files
-files.download('finsaathi_app.py')
-print("✅ Version 2 downloaded!")
-print("Upload this to your GitHub finsaathi repository")
-print("Streamlit will auto-redeploy in 2 minutes")
