@@ -48,6 +48,12 @@ if not KN:
     lbl_benefit = "Benefit"
     lbl_apply = "How to apply"
     lbl_great = "You are doing great! Keep it up."
+    lbl_income_type = "How does your income usually come?"
+    income_type_opts = ["Regular monthly income", "Seasonal — comes at harvest/crop sale time"]
+    lbl_seasonal_income = "Total income from last harvest/season (Rs)"
+    lbl_crop_duration = "How many months does this income need to cover? (until next harvest)"
+    lbl_harvests = "Number of harvests / income cycles per year"
+    lbl_effective_income_note = "Calculated effective monthly income"
 else:
     title = "💰 ಫಿನ್‌ಸಾಥಿ"
     subtitle = "ನಿಮ್ಮ ವೈಯಕ್ತಿಕ ಆರ್ಥಿಕ ಆರೋಗ್ಯ ಸ್ಕೋರ್ ಕಾರ್ಡ್"
@@ -85,6 +91,12 @@ else:
     lbl_benefit = "ಪ್ರಯೋಜನ"
     lbl_apply = "ಅರ್ಜಿ ಸಲ್ಲಿಸುವ ವಿಧಾನ"
     lbl_great = "ನೀವು ಅದ್ಭುತವಾಗಿ ಮಾಡುತ್ತಿದ್ದೀರಿ! ಮುಂದುವರಿಯಿರಿ."
+    lbl_income_type = "ನಿಮ್ಮ ಆದಾಯ ಸಾಮಾನ್ಯವಾಗಿ ಹೇಗೆ ಬರುತ್ತದೆ?"
+    income_type_opts = ["ನಿಯಮಿತ ಮಾಸಿಕ ಆದಾಯ", "ಋತುಮಾನ — ಸುಗ್ಗಿ/ಬೆಳೆ ಮಾರಾಟದ ಸಮಯದಲ್ಲಿ ಬರುತ್ತದೆ"]
+    lbl_seasonal_income = "ಕಳೆದ ಸುಗ್ಗಿ/ಋತುವಿನ ಒಟ್ಟು ಆದಾಯ (ರೂ)"
+    lbl_crop_duration = "ಈ ಆದಾಯ ಎಷ್ಟು ತಿಂಗಳುಗಳಿಗೆ ಸಾಕಾಗಬೇಕು? (ಮುಂದಿನ ಸುಗ್ಗಿಯವರೆಗೆ)"
+    lbl_harvests = "ವರ್ಷಕ್ಕೆ ಎಷ್ಟು ಸುಗ್ಗಿ / ಆದಾಯ ಚಕ್ರಗಳು"
+    lbl_effective_income_note = "ಲೆಕ್ಕ ಹಾಕಿದ ಪರಿಣಾಮಕಾರಿ ಮಾಸಿಕ ಆದಾಯ"
 
 # ============================================================
 #  HEADER
@@ -98,7 +110,32 @@ st.divider()
 # ============================================================
 name = st.text_input(lbl_name)
 user_type = st.selectbox(lbl_type, type_opts)
-salary = st.number_input(lbl_salary, min_value=0, value=50000, step=1000)
+
+is_farmer = "🌾" in user_type
+seasonal_risk_flag = False  # used later for an extra scoring rule
+
+if is_farmer:
+    income_type = st.radio(lbl_income_type, income_type_opts)
+    is_seasonal = (income_type == income_type_opts[1])
+
+    if is_seasonal:
+        seasonal_total = st.number_input(lbl_seasonal_income, min_value=0, value=120000, step=5000)
+        crop_duration = st.number_input(lbl_crop_duration, min_value=1, max_value=12, value=4, step=1)
+        harvests_per_year = st.number_input(lbl_harvests, min_value=1, max_value=12, value=1, step=1)
+
+        # Effective monthly income = seasonal lump sum spread over the months it must cover
+        salary = round(seasonal_total / crop_duration) if crop_duration > 0 else 0
+
+        st.caption(f"💡 {lbl_effective_income_note}: Rs {salary:,}")
+
+        # A farmer with only 1 harvest/year and a short crop duration carries higher cash-flow risk
+        if harvests_per_year == 1 and crop_duration <= 6:
+            seasonal_risk_flag = True
+    else:
+        salary = st.number_input(lbl_salary, min_value=0, value=50000, step=1000)
+else:
+    salary = st.number_input(lbl_salary, min_value=0, value=50000, step=1000)
+
 expense = st.number_input(lbl_expense, min_value=0, value=25000, step=500)
 emi = st.number_input(lbl_emi, min_value=0, value=0, step=500)
 emergency = st.number_input(lbl_emergency, min_value=0, value=50000, step=5000)
@@ -238,12 +275,12 @@ if st.button(lbl_btn):
 
         # ---------- Rule 5 — Expense ratio (10 pts) ----------
         if expense_ratio <= 40:
-            score += 10
+            score += 5
             reasons.append(("✅",
                 f"Expense ratio {round(expense_ratio,1)}% — Very controlled",
                 f"ಖರ್ಚು ಅನುಪಾತ {round(expense_ratio,1)}% — ಚೆನ್ನಾಗಿ ನಿಯಂತ್ರಿತ"))
         elif expense_ratio <= 60:
-            score += 6
+            score += 3
             reasons.append(("🟡",
                 f"Expense ratio {round(expense_ratio,1)}% — Acceptable",
                 f"ಖರ್ಚು ಅನುಪಾತ {round(expense_ratio,1)}% — ಸ್ವೀಕಾರಾರ್ಹ"))
@@ -301,11 +338,11 @@ if st.button(lbl_btn):
 
         # ---------- Rule 8 — Informal debt (7 pts) ----------
         if other_debt == debt_opts[0]:
-            score += 7
+            score += 2
             reasons.append(("✅", "No informal debt — Clean financial position",
                                    "ಅನೌಪಚಾರಿಕ ಸಾಲ ಇಲ್ಲ — ಸ್ವಚ್ಛ ಆರ್ಥಿಕ ಸ್ಥಿತಿ"))
         elif other_debt == debt_opts[1]:
-            score += 4
+            score += 1
             reasons.append(("🟡", "Small informal debt — Manageable",
                                    "ಸಣ್ಣ ಅನೌಪಚಾರಿಕ ಸಾಲ — ನಿರ್ವಹಿಸಬಹುದು"))
             advice.append(("Clear informal debts first — they carry high hidden interest",
@@ -322,6 +359,34 @@ if st.button(lbl_btn):
                                    "ಭಾರೀ ಅನೌಪಚಾರಿಕ ಸಾಲ — ಆರ್ಥಿಕ ಆರೋಗ್ಯದ ಮೇಲೆ ತೀವ್ರ ಪರಿಣಾಮ"))
             advice.append(("Visit your bank for debt consolidation loan at lower formal interest rate",
                             "ಕಡಿಮೆ ಔಪಚಾರಿಕ ಬಡ್ಡಿ ದರದ ಸಾಲ ಕ್ರೋಡೀಕರಣಕ್ಕಾಗಿ ನಿಮ್ಮ ಬ್ಯಾಂಕ್‌ಗೆ ಭೇಟಿ ನೀಡಿ"))
+
+        # ---------- Rule 9 — Seasonal cash-flow risk (10 pts, farmers only) ----------
+        if is_farmer and is_seasonal:
+            if harvests_per_year >= 2:
+                score += 10
+                reasons.append(("✅",
+                    f"{harvests_per_year} harvests/year — income spread across the year, lower risk",
+                    f"ವರ್ಷಕ್ಕೆ {harvests_per_year} ಸುಗ್ಗಿಗಳು — ಆದಾಯ ವರ್ಷವಿಡೀ ಹರಡಿದೆ, ಕಡಿಮೆ ಅಪಾಯ"))
+            elif not seasonal_risk_flag:
+                score += 7
+                reasons.append(("🟡",
+                    "Single harvest, but income covers a longer period — moderate risk",
+                    "ಒಂದು ಸುಗ್ಗಿ, ಆದರೆ ಆದಾಯ ದೀರ್ಘಾವಧಿಗೆ ಸಾಕು — ಮಧ್ಯಮ ಅಪಾಯ"))
+            else:
+                score += 3
+                reasons.append(("❌",
+                    "Single harvest covering a short period — high cash-flow risk between harvests",
+                    "ಒಂದೇ ಸುಗ್ಗಿ ಕಡಿಮೆ ಅವಧಿಗೆ — ಸುಗ್ಗಿಗಳ ನಡುವೆ ಹೆಚ್ಚಿನ ಹಣಕಾಸಿನ ಅಪಾಯ"))
+                advice.append(("Your income depends heavily on one harvest — consider a second crop cycle, allied income (dairy/poultry), or KCC to bridge lean months",
+                                "ನಿಮ್ಮ ಆದಾಯ ಒಂದೇ ಸುಗ್ಗಿಯ ಮೇಲೆ ಹೆಚ್ಚು ಅವಲಂಬಿತವಾಗಿದೆ — ಎರಡನೇ ಬೆಳೆ, ಪರ್ಯಾಯ ಆದಾಯ (ಹೈನುಗಾರಿಕೆ/ಕೋಳಿ) ಅಥವಾ ಕೊರತೆಯ ತಿಂಗಳುಗಳಿಗೆ KCC ಪರಿಗಣಿಸಿ"))
+        elif is_farmer:
+            # Farmer chose "regular monthly income" — give full points, no penalty
+            score += 10
+            reasons.append(("✅", "Regular income pattern — stable cash flow",
+                                   "ನಿಯಮಿತ ಆದಾಯ ಮಾದರಿ — ಸ್ಥಿರ ಹಣಕಾಸು ಹರಿವು"))
+        else:
+            # Non-farmers — this risk dimension doesn't apply, give full points
+            score += 10
 
         # ---------- Scheme recommendations ----------
         if "🌾" in user_type:
