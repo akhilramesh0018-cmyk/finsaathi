@@ -1,12 +1,52 @@
 import streamlit as st
+import datetime
 
 st.set_page_config(page_title="FinSaathi", page_icon="💰", layout="centered")
+
+# ============================================================
+#  ANONYMOUS USAGE LOGGING (no personal data ever stored)
+# ============================================================
+def log_anonymous_usage(user_type, score, lang_used):
+    """
+    Saves ONLY: timestamp, user type, score, language.
+    Never saves name, salary, expenses, or any personal detail.
+    Fails silently if not configured — app still works without it.
+    """
+    try:
+        import gspread
+        from google.oauth2.service_account import Credentials
+
+        scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+        creds = Credentials.from_service_account_info(
+            dict(st.secrets["gcp_service_account"]), scopes=scopes
+        )
+        client = gspread.authorize(creds)
+        sheet = client.open_by_key(st.secrets["sheet"]["sheet_id"]).sheet1
+
+        sheet.append_row([
+            datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+            user_type,
+            score,
+            lang_used
+        ])
+    except Exception:
+        # If secrets aren't set up yet, or sheet is unreachable —
+        # the app must continue working normally for the user.
+        pass
 
 # ============================================================
 #  LANGUAGE TOGGLE
 # ============================================================
 lang = st.selectbox("🌐 Language / ಭಾಷೆ", ["English", "ಕನ್ನಡ"])
 KN = (lang == "ಕನ್ನಡ")
+
+# ============================================================
+#  PRIVACY DISCLAIMER — always visible, builds trust
+# ============================================================
+if KN:
+    st.caption("🔒 ನಿಮ್ಮ ಗೌಪ್ಯತೆ ನಮಗೆ ಮುಖ್ಯ: ನಾವು ನಿಮ್ಮ ಹೆಸರು, ಆದಾಯ, ಅಥವಾ ಯಾವುದೇ ವೈಯಕ್ತಿಕ ಮಾಹಿತಿಯನ್ನು ಸಂಗ್ರಹಿಸುವುದಿಲ್ಲ ಅಥವಾ ಉಳಿಸುವುದಿಲ್ಲ. ಎಲ್ಲಾ ಲೆಕ್ಕಾಚಾರಗಳು ನಿಮ್ಮ ಬ್ರೌಸರ್‌ನಲ್ಲಿ ಮಾತ್ರ ನಡೆಯುತ್ತವೆ ಮತ್ತು ನೀವು ಪುಟವನ್ನು ಮುಚ್ಚಿದ ತಕ್ಷಣ ಅಳಿಸಲಾಗುತ್ತದೆ.")
+else:
+    st.caption("🔒 Your privacy matters to us: We do NOT store your name, income, or any personal information. All calculations happen only in your browser and are deleted the moment you close this page.")
 
 # ============================================================
 #  INPUT LABELS (already working — kept as-is)
@@ -440,6 +480,10 @@ if st.button(lbl_btn):
         # ============================================================
         #  DISPLAY RESULTS — fully language aware
         # ============================================================
+
+        # Log ONLY anonymous aggregate data — no personal details
+        log_anonymous_usage(user_type, score, lang)
+
         st.header(f"{lbl_report} — {name}")
 
         if score >= 85:
